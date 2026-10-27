@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>수학 방탈출</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#E7EAF0;--card:#fff;--pill:#D5DBE7;--t:#5C6E93;--ink:#3A4663;--ok:#4C9A6A;--no:#C85A5A}
+*{box-sizing:border-box}body{margin:0;font-family:Jua,"Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.card{background:var(--card);border-radius:22px;padding:28px 24px;max-width:560px;width:100%;box-shadow:0 6px 24px rgba(60,70,100,.12)}
+h1{font-size:1.6rem;margin:0 0 6px;color:var(--t);text-align:center}.sub{text-align:center;color:#7A849E;margin:0 0 18px}
+.pill{display:inline-block;background:var(--pill);color:var(--t);border-radius:999px;padding:4px 14px;font-size:.95rem}
+.locks{display:flex;gap:10px;justify-content:center;margin:14px 0 18px}.lock{width:48px;height:56px;border-radius:12px;background:var(--pill);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:var(--t)}.lock.open{background:#DCEFE3;color:var(--ok)}
+.q{font-size:1.35rem;line-height:1.5;margin:10px 0 14px;min-height:3em}
+input{font-family:inherit;font-size:1.6rem;width:100%;text-align:center;border:3px solid var(--pill);border-radius:14px;padding:10px;color:var(--ink)}input:focus{outline:none;border-color:var(--t)}
+button{font-family:inherit;font-size:1.1rem;border:0;border-radius:999px;padding:12px 22px;background:var(--t);color:#fff;cursor:pointer;margin-top:12px;width:100%}button.ghost{background:var(--pill);color:var(--t)}
+.fb{min-height:1.6em;text-align:center;margin-top:10px;color:var(--no)}.fb.ok{color:var(--ok)}.hint{color:#7A849E;font-size:.95rem;text-align:center;margin-top:6px}
+.hidden{display:none}.center{text-align:center}#qr{margin:14px auto 6px;width:180px;height:180px}#qr canvas,#qr img{width:180px;height:180px;border-radius:10px}
+.timer{position:fixed;top:12px;right:14px;background:#fff;border-radius:999px;padding:6px 14px;color:var(--t);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.small{font-size:.85rem;color:#7A849E;word-break:break-all}
+</style></head><body>
+<div class="timer" id="timer">00:00</div>
+<div class="card">
+  <section id="start">
+    <div class="center"><span class="pill" id="roomName"></span></div>
+    <h1 id="title"></h1><p class="sub" id="intro"></p>
+    <div class="locks" id="locks0"></div>
+    <button id="startBtn">입장</button>
+    <div class="center" style="margin-top:14px"><div id="qr"></div><div class="small" id="url"></div></div>
+  </section>
+  <section id="play" class="hidden">
+    <div class="center"><span class="pill" id="roomNo"></span></div>
+    <div class="locks" id="locks"></div>
+    <div class="q" id="q"></div>
+    <input id="ans" autocomplete="off" inputmode="text" placeholder="답">
+    <button id="check">자물쇠 열기</button>
+    <div class="fb" id="fb"></div><div class="hint" id="hint"></div>
+  </section>
+  <section id="done" class="hidden center">
+    <h1>탈출!</h1><p class="sub" id="result"></p>
+    <div class="locks" id="locks2"></div>
+    <p>비밀번호 <b id="pw"></b></p>
+    <button class="ghost" id="again">다시 하기</button>
+  </section>
+</div>
+<script src="js/qrcode.js"></script>
+<script src="js/my-questions.js"></script>
+<script>
+(function(){
+  const E=window.ESCAPE, Q=E.questions, $=id=>document.getElementById(id);
+  let i=0, wrong=0, t0=0, tick=null;
+  const norm=s=>String(s).replace(/\s/g,'').replace(/−/g,'-');
+  const pw = E.password || Q.map(x=>String(x.a)).join('');
+  $('title').textContent=E.title; $('intro').textContent=E.intro; $('roomName').textContent=E.room;
+  function locks(el,open){ el.innerHTML=''; Q.forEach((_,k)=>{const d=document.createElement('div');d.className='lock'+(k<open?' open':'');d.textContent=k<open?'🔓':'🔒';el.appendChild(d);}); }
+  locks($('locks0'),0);
+  const url=location.href.split('?')[0]; $('url').textContent=url;
+  try{ const qr=qrcode(0,'M'); qr.addData(url); qr.make(); $('qr').innerHTML=qr.createImgTag(5,0); }catch(e){}
+  function fmt(ms){const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+  function show(){ $('roomNo').textContent=(i+1)+' / '+Q.length+' 번 자물쇠'; locks($('locks'),i); $('q').textContent=Q[i].q; $('ans').value=''; $('fb').textContent=''; $('fb').className='fb'; $('hint').textContent=''; wrong=0; setTimeout(()=>$('ans').focus(),30); }
+  $('startBtn').onclick=()=>{ $('start').classList.add('hidden'); $('play').classList.remove('hidden'); i=0; t0=Date.now(); tick=setInterval(()=>$('timer').textContent=fmt(Date.now()-t0),500); const p=new URLSearchParams(location.search).get('q'); if(p&&+p>=1&&+p<=Q.length) i=+p-1; show(); };
+  function check(){ const v=norm($('ans').value); if(!v) return; if(v===norm(Q[i].a)){ $('fb').textContent='열렸다!'; $('fb').className='fb ok'; i++; if(i>=Q.length){ clearInterval(tick); $('play').classList.add('hidden'); $('done').classList.remove('hidden'); locks($('locks2'),Q.length); $('result').textContent='걸린 시간 '+fmt(Date.now()-t0); $('pw').textContent=pw; } else setTimeout(show,600); } else { wrong++; $('fb').textContent='아직 잠겨 있다. 다시!'; $('fb').className='fb'; if(wrong>=2&&Q[i].hint) $('hint').textContent='힌트: '+Q[i].hint; $('ans').select(); } }
+  $('check').onclick=check; $('ans').addEventListener('keydown',e=>{ if(e.key==='Enter') check(); });
+  $('again').onclick=()=>location.reload();
+})();
+</script>
+</body></html>
